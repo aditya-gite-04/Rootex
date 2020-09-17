@@ -237,14 +237,15 @@ void ResourceLoader::LoadAssimp(ModelResourceFile* file)
 
 void ResourceLoader::LoadAssimp(AnimatedModelResourceFile* file)
 {
-	const aiScene* scene = s_ModelLoader.ReadFile(
+	Assimp::Importer animatedModelLoader;
+	const aiScene* scene = animatedModelLoader.ReadFile(
 	    file->getPath().generic_string(),
 	    aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_OptimizeMeshes | aiProcess_ConvertToLeftHanded);
 
 	if (!scene)
 	{
 		ERR("Model could not be loaded: " + OS::GetAbsolutePath(file->m_ResourceData->getPath().string()).generic_string());
-		ERR("Assimp: " + s_ModelLoader.GetErrorString());
+		ERR("Assimp: " + animatedModelLoader.GetErrorString());
 		return;
 	}
 
@@ -311,15 +312,15 @@ void ResourceLoader::LoadAssimp(AnimatedModelResourceFile* file)
 			WARN("Material does not have color: " + String(material->GetName().C_Str()));
 		}
 
-		Ref<BasicMaterial> extractedMaterial;
+		Ref<AnimatedMaterial> extractedMaterial;
 		if (MaterialLibrary::IsExists(material->GetName().C_Str()))
 		{
-			extractedMaterial = std::dynamic_pointer_cast<BasicMaterial>(MaterialLibrary::GetMaterial(material->GetName().C_Str() + String(".rmat")));
+			extractedMaterial = std::dynamic_pointer_cast<AnimatedMaterial>(MaterialLibrary::GetMaterial(material->GetName().C_Str() + String(".rmat")));
 		}
 		else
 		{
-			MaterialLibrary::CreateNewMaterialFile(material->GetName().C_Str(), "BasicMaterial");
-			extractedMaterial = std::dynamic_pointer_cast<BasicMaterial>(MaterialLibrary::GetMaterial(material->GetName().C_Str() + String(".rmat")));
+			MaterialLibrary::CreateNewMaterialFile(material->GetName().C_Str(), "AnimatedMaterial");
+			extractedMaterial = std::dynamic_pointer_cast<AnimatedMaterial>(MaterialLibrary::GetMaterial(material->GetName().C_Str() + String(".rmat")));
 			extractedMaterial->setColor({ color.r, color.g, color.b, 1.0f });
 
 			for (int i = 0; i < material->GetTextureCount(aiTextureType_DIFFUSE); i++)
@@ -416,7 +417,7 @@ void ResourceLoader::LoadAssimp(AnimatedModelResourceFile* file)
 	Matrix toWorldTransformation = Matrix({ transform.a1, transform.a2, transform.a3, transform.a4,
 	    transform.b1, transform.b2, transform.b3, transform.b4,
 	    transform.c1, transform.c2, transform.c3, transform.c4 });
-	file->GetBoneTransforms(scene->mRootNode, toWorldTransformation);
+	file->setBoneTransforms(scene->mRootNode, toWorldTransformation);
 
 	for (int i = 0; i < scene->mNumAnimations; i++)
 	{
@@ -426,8 +427,8 @@ void ResourceLoader::LoadAssimp(AnimatedModelResourceFile* file)
 		SkeletalAnimation animation;
 		
 		float durationInTicks = anim->mDuration;
-		float TicksPerSecond = anim->mTicksPerSecond;
-		float durationInSeconds = durationInSeconds / TicksPerSecond;
+		float ticksPerSecond = anim->mTicksPerSecond;
+		float durationInSeconds = durationInTicks / ticksPerSecond;
 		
 		animation.m_Duration = durationInSeconds;
 
@@ -442,7 +443,7 @@ void ResourceLoader::LoadAssimp(AnimatedModelResourceFile* file)
 			{
 				TranslationKeyframe keyframe;
 				
-				keyframe.m_Time = nodeAnim->mPositionKeys[k].mTime;
+				keyframe.m_Time = nodeAnim->mPositionKeys[k].mTime / ticksPerSecond;
 
 				keyframe.m_Translation.x = nodeAnim->mPositionKeys[k].mValue.x;
 				keyframe.m_Translation.y = nodeAnim->mPositionKeys[k].mValue.y;
@@ -455,7 +456,7 @@ void ResourceLoader::LoadAssimp(AnimatedModelResourceFile* file)
 			{
 				RotationKeyframe keyframe;
 				
-				keyframe.m_Time = nodeAnim->mRotationKeys[k].mTime;
+				keyframe.m_Time = nodeAnim->mRotationKeys[k].mTime /ticksPerSecond;
 				
 				keyframe.m_Rotation.x = nodeAnim->mRotationKeys[k].mValue.x;
 				keyframe.m_Rotation.y = nodeAnim->mRotationKeys[k].mValue.y;
@@ -469,7 +470,7 @@ void ResourceLoader::LoadAssimp(AnimatedModelResourceFile* file)
 			{
 				ScalingKeyframe keyframe;
 
-				keyframe.m_Time = nodeAnim->mScalingKeys[k].mTime;
+				keyframe.m_Time = nodeAnim->mScalingKeys[k].mTime / ticksPerSecond;
 
 				keyframe.m_Scaling.x = nodeAnim->mScalingKeys[k].mValue.x;
 				keyframe.m_Scaling.y = nodeAnim->mScalingKeys[k].mValue.y;
@@ -723,7 +724,6 @@ AnimatedModelResourceFile* ResourceLoader::CreateAnimatedModelResourceFile(const
 	LoadAssimp(animationRes);
 
 	s_ResourcesDataFiles[Ptr<ResourceData>(resData)] = Ptr<ResourceFile>(animationRes);
-	s_ResourceFileLibrary[ResourceFile::Type::AnimatedModel].push_back(animationRes);
 
 	return animationRes;
 }
