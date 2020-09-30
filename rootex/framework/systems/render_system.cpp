@@ -58,6 +58,21 @@ void RenderSystem::renderPassRender(RenderPass renderPass)
 			mc->postRender();
 		}
 	}
+
+	AnimatedModelComponent* amc = nullptr;
+	for (auto& component : s_Components[AnimatedModelComponent::s_ID])
+	{
+		amc = (AnimatedModelComponent*)component;
+		if (amc->getRenderPass() & (unsigned int)renderPass)
+		{
+			amc->preRender();
+			if (amc->isVisible())
+			{
+				amc->render();
+			}
+			amc->postRender();
+		}
+	}
 }
 
 void RenderSystem::recoverLostDevice()
@@ -107,6 +122,8 @@ void RenderSystem::update(float deltaMilliseconds)
 	RenderingDevice::GetSingleton()->setCurrentRasterizerState();
 	RenderingDevice::GetSingleton()->setDepthStencilState();
 	RenderingDevice::GetSingleton()->setAlphaBlendState();
+
+	AnimationSystem::GetSingleton()->update(deltaMilliseconds);
 
 	perFrameVSCBBinds(fogStart, fogEnd);
 	const Color& fogColor = clearColor;

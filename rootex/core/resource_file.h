@@ -156,8 +156,7 @@ class AnimatedModelResourceFile : public ResourceFile
 	explicit AnimatedModelResourceFile(ResourceData* resData);
 	~AnimatedModelResourceFile();
 
-	HashMap<Ref<Material>, Vector<AnimatedMesh>> m_Meshes;
-	Vector<Ref<Texture>> m_Textures;
+	Vector<Pair<Ref<Material>, Vector<Mesh>>> m_Meshes;
 
 	HashMap<String, UINT> m_BoneMapping;
 	Vector<Matrix> m_BoneOffsets;
@@ -172,7 +171,7 @@ public:
 	explicit AnimatedModelResourceFile(AnimatedModelResourceFile&) = delete;
 	explicit AnimatedModelResourceFile(AnimatedModelResourceFile&&) = delete;
 
-	HashMap<Ref<Material>, Vector<AnimatedMesh>>& getMeshes() { return m_Meshes; }
+	Vector<Pair<Ref<Material>, Vector<Mesh>>>& getMeshes() { return m_Meshes; }
 	HashMap<String, SkeletalAnimation>& getAnimations() { return m_Animations; }
 	UINT getBoneCount() const { return m_BoneOffsets.size(); }
 

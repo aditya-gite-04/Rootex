@@ -92,7 +92,7 @@ EntityFactory::EntityFactory()
 	REGISTER_COMPONENT(CPUParticlesComponent);
 	REGISTER_COMPONENT(TriggerComponent);
 	REGISTER_COMPONENT(UIComponent);
-	//REGISTER_COMPONENT(AnimatedModelComponent);
+	REGISTER_COMPONENT(AnimatedModelComponent);
 }
 
 Ref<Component> EntityFactory::createComponent(const String& name, const JSON::json& componentData)

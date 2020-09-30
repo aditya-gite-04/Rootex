@@ -208,7 +208,7 @@ void AnimatedModelResourceFile::setBoneTransforms(aiNode* currentNode, Matrix pa
 	UINT index = m_BoneMapping[currentNode->mName.C_Str()];
 	m_BoneTransforms[index] = currentRootTransform;
 
-	for (size_t i = 0; i < currentNode->mNumChildren; i++) 
+	for (UINT i = 0; i < currentNode->mNumChildren; i++) 
 	{
 		setBoneTransforms(currentNode->mChildren[i], currentRootTransform);
 	}
@@ -220,7 +220,7 @@ void AnimatedModelResourceFile::getFinalTransforms(const String& animationName, 
 
 	for (UINT i = 0; i < getBoneCount(); i++)
 	{
-		transforms[i] *= m_BoneOffsets[i] * m_BoneTransforms[i]; // see this method of calculating
+		transforms[i] *= m_BoneTransforms[i] * m_BoneOffsets[i];
 	}
 }
 
