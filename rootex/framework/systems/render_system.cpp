@@ -123,8 +123,6 @@ void RenderSystem::update(float deltaMilliseconds)
 	RenderingDevice::GetSingleton()->setDepthStencilState();
 	RenderingDevice::GetSingleton()->setAlphaBlendState();
 
-	AnimationSystem::GetSingleton()->update(deltaMilliseconds);
-
 	perFrameVSCBBinds(fogStart, fogEnd);
 	const Color& fogColor = clearColor;
 	perFramePSCBBinds(fogColor);

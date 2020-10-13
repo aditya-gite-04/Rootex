@@ -1,23 +1,17 @@
 {
     "Components": {
-        "FogComponent": {
-            "color": {
-                "a": 1.0,
-                "b": 0.8774510025978088,
-                "g": 0.9711649417877197,
-                "r": 1.0
-            },
-            "far": 46.0,
-            "near": 8.0
+        "AnimatedModelComponent": {
+            "isVisible": true,
+            "renderPass": 1,
+            "resFile": "game/assets/animation.dae"
         },
         "HierarchyComponent": {
             "children": [],
             "parent": 1
         },
-        "ModelComponent": {
-            "isVisible": true,
-            "renderPass": 4,
-            "resFile": "game/assets/sponza/sponza.3ds"
+        "SkyComponent": {
+            "skyMaterial": "rootex/assets/materials/sky.rmat",
+            "skySphere": "rootex/assets/sky.obj"
         },
         "TransformComponent": {
             "boundingBox": {
@@ -35,7 +29,7 @@
             "position": {
                 "x": 0.0,
                 "y": 0.0,
-                "z": 0.0
+                "z": -5.0
             },
             "rotation": {
                 "w": 1.0,
@@ -44,17 +38,14 @@
                 "z": -0.0
             },
             "scale": {
-                "x": 0.029999999329447746,
-                "y": 0.029999999329447746,
-                "z": 0.029999999329447746
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
             }
-        },
-        "UIComponent": {
-            "filePath": "rootex/assets/rml/demo.rml"
         }
     },
     "Entity": {
         "ID": 2,
-        "name": "Sponza"
+        "name": "AnimatedModel"
     }
 }

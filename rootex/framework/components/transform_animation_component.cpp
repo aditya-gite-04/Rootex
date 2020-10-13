@@ -163,7 +163,6 @@ void TransformAnimationComponent::interpolate(float t)
 				break;
 			}
 		}
-
 	}
 }
 

@@ -24,6 +24,7 @@ private:
 
 public:
 	static const String s_DefaultMaterialPath;
+	static const String s_AnimatedDefaultMaterialPath;
 	
 	static void SaveAll();
 	static void LoadMaterials();
@@ -32,6 +33,7 @@ public:
 
 	static Ref<Material> GetMaterial(const String& materialPath);
 	static Ref<Material> GetDefaultMaterial();
+	static Ref<Material> GetAnimatedDefaultMaterial();
 	static MaterialMap& GetAllMaterials() { return s_Materials; };
 	static MaterialDatabase& GetMaterialDatabase() { return s_MaterialDatabase; };
 };

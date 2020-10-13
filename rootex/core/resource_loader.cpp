@@ -36,7 +36,7 @@ void ResourceLoader::LoadAssimp(ModelResourceFile* file)
 	Assimp::Importer modelLoader;
 	const aiScene* scene = modelLoader.ReadFile(
 	    file->getPath().generic_string(),
-	    aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_OptimizeMeshes | aiProcess_CalcTangentSpace);
+	    aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_OptimizeMeshes | aiProcess_CalcTangentSpace | aiProcess_ConvertToLeftHanded | aiProcess_PreTransformVertices);
 
 	if (!scene)
 	{
@@ -120,7 +120,7 @@ void ResourceLoader::LoadAssimp(ModelResourceFile* file)
 		String materialPath;
 		if (String(material->GetName().C_Str()) == "DefaultMaterial")
 		{
-			materialPath = "rootex/assets/materials/default.rmat";
+			materialPath = MaterialLibrary::s_DefaultMaterialPath;
 		}
 		else
 		{
@@ -240,7 +240,7 @@ void ResourceLoader::LoadAssimp(AnimatedModelResourceFile* file)
 	Assimp::Importer animatedModelLoader;
 	const aiScene* scene = animatedModelLoader.ReadFile(
 	    file->getPath().generic_string(),
-	    aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_OptimizeMeshes | aiProcess_CalcTangentSpace | aiProcess_ConvertToLeftHanded);
+	    aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_OptimizeMeshes | aiProcess_CalcTangentSpace);
 
 	if (!scene)
 	{
@@ -249,7 +249,7 @@ void ResourceLoader::LoadAssimp(AnimatedModelResourceFile* file)
 		return;
 	}
 
-	UINT boneCount = 0;
+	unsigned int boneCount = 0;
 	Vector<Ref<Texture>> textures;
 	textures.resize(scene->mNumTextures, nullptr);
 	file->m_Meshes.clear();
@@ -328,7 +328,7 @@ void ResourceLoader::LoadAssimp(AnimatedModelResourceFile* file)
 		String a = String(material->GetName().C_Str());
 		if (String(material->GetName().C_Str()) == "DefaultMaterial")
 		{
-			materialPath = "rootex/assets/materials/animation.rmat";
+			materialPath = MaterialLibrary::s_AnimatedDefaultMaterialPath;
 		}
 		else
 		{
@@ -338,6 +338,11 @@ void ResourceLoader::LoadAssimp(AnimatedModelResourceFile* file)
 		if (MaterialLibrary::IsExists(materialPath))
 		{
 			extractedMaterial = std::dynamic_pointer_cast<AnimatedMaterial>(MaterialLibrary::GetMaterial(materialPath));
+			if (!extractedMaterial)
+			{
+				WARN("Material loaded was not an AnimatedMaterial. Replacing with default AnimatedMaterial: " + materialPath);
+				extractedMaterial = std::dynamic_pointer_cast<AnimatedMaterial>(MaterialLibrary::GetAnimatedDefaultMaterial());
+			}
 		}
 		else
 		{
@@ -420,12 +425,12 @@ void ResourceLoader::LoadAssimp(AnimatedModelResourceFile* file)
 			}
 		}
 
-		HashMap<int, Vector<UINT>> verticesIndex;
+		HashMap<int, Vector<unsigned int>> verticesIndex;
 		HashMap<int, Vector<float>> verticesWeights;
 		
 		for (int j = 0; j < mesh->mNumBones; j++)
 		{
-			UINT boneIndex = 0;
+			unsigned int boneIndex = 0;
 			const aiBone* bone = mesh->mBones[j];
 			
 			if (file->m_BoneMapping.find(bone->mName.C_Str()) == file->m_BoneMapping.end())
@@ -435,17 +440,13 @@ void ResourceLoader::LoadAssimp(AnimatedModelResourceFile* file)
 
 				file->m_BoneMapping[bone->mName.C_Str()] = boneIndex;
 
-				const aiMatrix4x4& offset = bone->mOffsetMatrix;
-				Matrix offsetMatrix = Matrix({ offset.a1, offset.a2, offset.a3, offset.a4,
-				    offset.b1, offset.b2, offset.b3, offset.b4,
-				    offset.c1, offset.c2, offset.c3, offset.c4 });
-
+				Matrix offsetMatrix = file->AiMatrixToMatrix(bone->mOffsetMatrix);
 				file->m_BoneOffsets.push_back(offsetMatrix);
 			}
 			else
 			{
 				boneIndex = file->m_BoneMapping[bone->mName.C_Str()];
-			}			
+			}
 
 			for (int weightIndex = 0; weightIndex < bone->mNumWeights; weightIndex++)
 			{
@@ -487,19 +488,22 @@ void ResourceLoader::LoadAssimp(AnimatedModelResourceFile* file)
 			}
 		}
 
-		if (!found && extractedMaterial)
+		if (!found)
 		{
-			file->getMeshes().push_back(Pair<Ref<Material>, Vector<Mesh>>(extractedMaterial, {extractedMesh}));
+			file->getMeshes().push_back(Pair<Ref<Material>, Vector<Mesh>>(extractedMaterial, { extractedMesh }));
 		}
 	}
 
-	file->m_BoneTransforms.resize(boneCount);
+	file->m_LocalAnimationTransforms.resize(boneCount);
+	file->m_InverseBindTransforms.resize(boneCount);
 
-	aiMatrix4x4 transform = scene->mRootNode->mTransformation;
-	Matrix toWorldTransformation = Matrix({ transform.a1, transform.a2, transform.a3, transform.a4,
-	    transform.b1, transform.b2, transform.b3, transform.b4,
-	    transform.c1, transform.c2, transform.c3, transform.c4 });
-	file->setBoneTransforms(scene->mRootNode, toWorldTransformation);
+	file->setInverseBindTransforms(scene->mRootNode, Matrix::Identity);
+
+	file->m_RootNode = new SkeletonNode;
+	file->setNodeHeirarchy(scene->mRootNode, file->m_RootNode);
+
+	bool rootFoundFlag = false;
+	file->setRootTransform(scene->mRootNode, Matrix::Identity, rootFoundFlag);
 
 	for (int i = 0; i < scene->mNumAnimations; i++)
 	{
@@ -508,66 +512,56 @@ void ResourceLoader::LoadAssimp(AnimatedModelResourceFile* file)
 		SkeletalAnimation animation;
 		
 		float durationInTicks = anim->mDuration;
-		float ticksPerSecond = anim->mTicksPerSecond;
+		float ticksPerSecond = anim->mTicksPerSecond ? anim->mTicksPerSecond : 25.0f;
 		float durationInSeconds = durationInTicks / ticksPerSecond;
 		
 		animation.m_Duration = durationInSeconds;
 
-		animation.m_BoneAnimations.resize(boneCount);
-
 		for (int j = 0; j < anim->mNumChannels; j++)
 		{
 			const aiNodeAnim* nodeAnim = anim->mChannels[j];
-
-			if (file->m_BoneMapping.find(nodeAnim->mNodeName.C_Str()) != file->m_BoneMapping.end())
+			BoneAnimation boneAnims;
+			for (int k = 0; k < nodeAnim->mNumPositionKeys; k++)
 			{
-				BoneAnimation boneAnims;
+				TranslationKeyframe keyframe;
 
-				for (int k = 0; k < nodeAnim->mNumPositionKeys; k++)
-				{
-					TranslationKeyframe keyframe;
+				keyframe.m_Time = nodeAnim->mPositionKeys[k].mTime / ticksPerSecond;
 
-					keyframe.m_Time = nodeAnim->mPositionKeys[k].mTime / ticksPerSecond;
+				keyframe.m_Translation.x = nodeAnim->mPositionKeys[k].mValue.x;
+				keyframe.m_Translation.y = nodeAnim->mPositionKeys[k].mValue.y;
+				keyframe.m_Translation.z = nodeAnim->mPositionKeys[k].mValue.z;
 
-					keyframe.m_Translation.x = nodeAnim->mPositionKeys[k].mValue.x;
-					keyframe.m_Translation.y = nodeAnim->mPositionKeys[k].mValue.y;
-					keyframe.m_Translation.z = nodeAnim->mPositionKeys[k].mValue.z;
-
-					boneAnims.m_Translation.push_back(keyframe);
-				}
-
-				for (int k = 0; k < nodeAnim->mNumRotationKeys; k++)
-				{
-					RotationKeyframe keyframe;
-
-					keyframe.m_Time = nodeAnim->mRotationKeys[k].mTime / ticksPerSecond;
-
-					keyframe.m_Rotation.x = nodeAnim->mRotationKeys[k].mValue.x;
-					keyframe.m_Rotation.y = nodeAnim->mRotationKeys[k].mValue.y;
-					keyframe.m_Rotation.z = nodeAnim->mRotationKeys[k].mValue.z;
-					keyframe.m_Rotation.w = nodeAnim->mRotationKeys[k].mValue.w;
-
-					boneAnims.m_Rotation.push_back(keyframe);
-				}
-
-				for (int k = 0; k < nodeAnim->mNumScalingKeys; k++)
-				{
-					ScalingKeyframe keyframe;
-
-					keyframe.m_Time = nodeAnim->mScalingKeys[k].mTime / ticksPerSecond;
-
-					keyframe.m_Scaling.x = nodeAnim->mScalingKeys[k].mValue.x;
-					keyframe.m_Scaling.y = nodeAnim->mScalingKeys[k].mValue.y;
-					keyframe.m_Scaling.z = nodeAnim->mScalingKeys[k].mValue.z;
-
-					boneAnims.m_Scaling.push_back(keyframe);
-				}
-
-				int boneIndex = file->m_BoneMapping[nodeAnim->mNodeName.C_Str()];
-				animation.m_BoneAnimations[boneIndex] = boneAnims;
+				boneAnims.m_Translation.push_back(keyframe);
 			}
-		}
 
+			for (int k = 0; k < nodeAnim->mNumRotationKeys; k++)
+			{
+				RotationKeyframe keyframe;
+
+				keyframe.m_Time = nodeAnim->mRotationKeys[k].mTime / ticksPerSecond;
+
+				keyframe.m_Rotation.x = nodeAnim->mRotationKeys[k].mValue.x;
+				keyframe.m_Rotation.y = nodeAnim->mRotationKeys[k].mValue.y;
+				keyframe.m_Rotation.z = nodeAnim->mRotationKeys[k].mValue.z;
+				keyframe.m_Rotation.w = nodeAnim->mRotationKeys[k].mValue.w;
+
+				boneAnims.m_Rotation.push_back(keyframe);
+			}
+
+			for (int k = 0; k < nodeAnim->mNumScalingKeys; k++)
+			{
+				ScalingKeyframe keyframe;
+
+				keyframe.m_Time = nodeAnim->mScalingKeys[k].mTime / ticksPerSecond;
+
+				keyframe.m_Scaling.x = nodeAnim->mScalingKeys[k].mValue.x;
+				keyframe.m_Scaling.y = nodeAnim->mScalingKeys[k].mValue.y;
+				keyframe.m_Scaling.z = nodeAnim->mScalingKeys[k].mValue.z;
+
+				boneAnims.m_Scaling.push_back(keyframe);
+			}
+			animation.m_BoneAnimations[nodeAnim->mNodeName.C_Str()] = boneAnims;
+		}
 		file->m_Animations[anim->mName.C_Str()] = animation;
 	}
 }

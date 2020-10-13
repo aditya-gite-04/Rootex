@@ -182,6 +182,16 @@ void AnimatedModelResourceFile::RegisterAPI(sol::state& rootex)
 	    sol::base_classes, sol::bases<ResourceFile>());
 }
 
+Matrix AnimatedModelResourceFile::AiMatrixToMatrix(const aiMatrix4x4& aiMatrix)
+{
+	return Matrix(
+		aiMatrix.a1, aiMatrix.a2, aiMatrix.a3, aiMatrix.a4,
+		aiMatrix.b1, aiMatrix.b2, aiMatrix.b3, aiMatrix.b4,
+		aiMatrix.c1, aiMatrix.c2, aiMatrix.c3, aiMatrix.c4,
+		aiMatrix.d1, aiMatrix.d2, aiMatrix.d3, aiMatrix.d4
+	).Transpose();
+}
+
 Vector<String> AnimatedModelResourceFile::getAnimationNames()
 {
 	Vector<String> animationNames;
@@ -197,30 +207,88 @@ float AnimatedModelResourceFile::getAnimationEndTime(const String& animationName
 	return m_Animations[animationName].getEndTime();
 }
 
-void AnimatedModelResourceFile::setBoneTransforms(aiNode* currentNode, Matrix parentRootTransform)
+void AnimatedModelResourceFile::setRootTransform(aiNode* currentNode, Matrix parentToRootTransform, bool& isFound)
 {
-	aiMatrix4x4 transform = currentNode->mTransformation;
-	Matrix toRootTransformation = Matrix({ transform.a1, transform.a2, transform.a3, transform.a4,
-	    transform.b1, transform.b2, transform.b3, transform.b4,
-	    transform.c1, transform.c2, transform.c3, transform.c4 });
-	Matrix currentRootTransform = (toRootTransformation) * parentRootTransform;
-	
-	UINT index = m_BoneMapping[currentNode->mName.C_Str()];
-	m_BoneTransforms[index] = currentRootTransform;
-
-	for (UINT i = 0; i < currentNode->mNumChildren; i++) 
+	Matrix toParentTransformation = AiMatrixToMatrix(currentNode->mTransformation);
+	Matrix currentToRootTransform = toParentTransformation * parentToRootTransform;
+	if (!isFound)
 	{
-		setBoneTransforms(currentNode->mChildren[i], currentRootTransform);
+		if (m_BoneMapping.find(currentNode->mName.C_Str()) != m_BoneMapping.end())
+		{
+			m_RootInverseTransform = currentToRootTransform.Invert();
+			isFound = true;
+		}
+		else
+		{
+			for (unsigned int i = 0; i < currentNode->mNumChildren; i++)
+			{
+				setRootTransform(currentNode->mChildren[i], currentToRootTransform, isFound);
+			}
+		}
+	}
+}
+
+void AnimatedModelResourceFile::setNodeHeirarchy(aiNode* currentAiNode, SkeletonNode* currentNode)
+{
+	static unsigned int nodeCount = 0;
+	currentNode->m_Index = nodeCount;
+	currentNode->m_Name = String(currentAiNode->mName.C_Str());
+	currentNode->m_LocalBindTransform = AiMatrixToMatrix(currentAiNode->mTransformation);
+
+	currentNode->m_Children.resize(currentAiNode->mNumChildren);
+	for (int i = 0; i < currentAiNode->mNumChildren; i++)
+	{
+		nodeCount++;
+		currentNode->m_Children[i] = new SkeletonNode;
+		setNodeHeirarchy(currentAiNode->mChildren[i], currentNode->m_Children[i]);
 	}
 }
 
 void AnimatedModelResourceFile::getFinalTransforms(const String& animationName, float currentTime, Vector<Matrix>& transforms)
 {
-	m_Animations[animationName].interpolate(currentTime, transforms);
+	getAnimationTransforms(m_RootNode, currentTime, animationName, Matrix::Identity);
 
-	for (UINT i = 0; i < getBoneCount(); i++)
+	for (unsigned int i = 0; i < getBoneCount(); i++)
 	{
-		transforms[i] *= m_BoneTransforms[i] * m_BoneOffsets[i];
+		transforms[i] = m_BoneOffsets[i] * m_LocalAnimationTransforms[i] * m_RootInverseTransform;
+	}
+}
+
+void AnimatedModelResourceFile::getAnimationTransforms(SkeletonNode* node, float currentTime, const String& animationName, const Matrix& parentModelTransform)
+{
+	Matrix boneSpaceTransform = m_Animations[animationName].interpolate(node->m_Name.c_str(), currentTime);
+	if (boneSpaceTransform == Matrix::Identity)
+	{
+		boneSpaceTransform = node->m_LocalBindTransform;
+	}
+	
+	Matrix currentModelTransform = boneSpaceTransform * parentModelTransform;
+
+	if (m_BoneMapping.find(node->m_Name.c_str()) != m_BoneMapping.end())
+	{
+		m_LocalAnimationTransforms[m_BoneMapping[node->m_Name]] = currentModelTransform;
+	}
+
+	for (auto& child : node->m_Children)
+	{
+		getAnimationTransforms(child, currentTime, animationName, currentModelTransform);
+	}
+}
+
+void AnimatedModelResourceFile::setInverseBindTransforms(aiNode* currentNode, const Matrix& parentModelTransform)
+{
+	Matrix localBindTransform = AiMatrixToMatrix(currentNode->mTransformation);
+	Matrix currentModelTransform = localBindTransform * parentModelTransform;
+
+	if (m_BoneMapping.find(currentNode->mName.C_Str()) != m_BoneMapping.end())
+	{
+		unsigned int index = m_BoneMapping.at(currentNode->mName.C_Str());
+		m_InverseBindTransforms[index] = currentModelTransform.Invert();
+	}
+
+	for (unsigned int i = 0; i < currentNode->mNumChildren; i++)
+	{
+		setInverseBindTransforms(currentNode->mChildren[i], currentModelTransform);
 	}
 }
 

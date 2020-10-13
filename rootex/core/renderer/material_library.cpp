@@ -4,6 +4,7 @@
 
 MaterialLibrary::MaterialMap MaterialLibrary::s_Materials;
 const String MaterialLibrary::s_DefaultMaterialPath = "rootex/assets/materials/default.rmat";
+const String MaterialLibrary::s_AnimatedDefaultMaterialPath = "rootex/assets/materials/animated_default.rmat";
 
 MaterialLibrary::MaterialDatabase MaterialLibrary::s_MaterialDatabase = {
 	{ BasicMaterial::s_MaterialName, { BasicMaterial::CreateDefault, BasicMaterial::Create } },
@@ -72,6 +73,21 @@ Ref<Material> MaterialLibrary::GetDefaultMaterial()
 		Ref<Material> material(BasicMaterial::CreateDefault());
 		material->setFileName(s_DefaultMaterialPath);
 		s_Materials[s_DefaultMaterialPath].second = material;
+		return material;
+	}
+}
+
+Ref<Material> MaterialLibrary::GetAnimatedDefaultMaterial()
+{
+	if (Ref<Material> lockedMaterial = s_Materials[s_AnimatedDefaultMaterialPath].second.lock())
+	{
+		return lockedMaterial;
+	}
+	else
+	{
+		Ref<Material> material(AnimatedMaterial::CreateDefault());
+		material->setFileName(s_AnimatedDefaultMaterialPath);
+		s_Materials[s_AnimatedDefaultMaterialPath].second = material;
 		return material;
 	}
 }

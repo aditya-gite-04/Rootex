@@ -13,8 +13,8 @@ struct VertexBufferElement
 		FloatFloatFloat = DXGI_FORMAT_R32G32B32_FLOAT,
 		FloatFloat = DXGI_FORMAT_R32G32_FLOAT,
 		ByteByteByteByte = DXGI_FORMAT_R8G8B8A8_UNORM,
-		UintUintUintUint = DXGI_FORMAT_R32G32B32A32_FLOAT,
-		FloatFloatFloatFloat = DXGI_FORMAT_R32G32B32A32_UINT 
+		IntIntIntInt = DXGI_FORMAT_R8G8B8A8_SINT,
+		FloatFloatFloatFloat = DXGI_FORMAT_R32G32B32A32_FLOAT 
 	};
 
 	/// What type of objects are present in buffer
@@ -33,8 +33,8 @@ struct VertexBufferElement
 			return sizeof(float) * 2;
 		case ByteByteByteByte:
 			return sizeof(char) * 4;
-		case UintUintUintUint:
-			return sizeof(UINT) * 4;
+		case IntIntIntInt:
+			return sizeof(int) * 4;
 		case FloatFloatFloatFloat:
 			return sizeof(float) * 4;
 		default:

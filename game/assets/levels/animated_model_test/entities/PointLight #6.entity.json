@@ -1,25 +1,5 @@
 {
     "Components": {
-        "DirectionalLightComponent": {
-            "ambientColor": {
-                "a": 1.0,
-                "b": 0.9999899864196777,
-                "g": 0.9999899864196777,
-                "r": 1.0
-            },
-            "diffuseColor": {
-                "a": 1.0,
-                "b": 0.9999899864196777,
-                "g": 0.9999987483024597,
-                "r": 1.0
-            },
-            "diffuseIntensity": 0.2800000011920929,
-            "direction": {
-                "x": 0.0,
-                "y": -1.0,
-                "z": 0.0
-            }
-        },
         "HierarchyComponent": {
             "children": [],
             "parent": 1
@@ -32,21 +12,21 @@
         "PointLightComponent": {
             "ambientColor": {
                 "a": 1.0,
-                "b": 0.9999899864196777,
-                "g": 0.9999899864196777,
-                "r": 1.0
+                "b": 0.5,
+                "g": 0.5,
+                "r": 0.5
             },
-            "attConst": 1.0449999570846558,
-            "attLin": 7.0,
-            "attQuad": 1.0080000162124634,
+            "attConst": 162.0449981689453,
+            "attLin": 1.0,
+            "attQuad": 0.007499999832361937,
             "diffuseColor": {
                 "a": 1.0,
-                "b": 0.9999899864196777,
+                "b": 1.0,
                 "g": 1.0,
-                "r": 0.9999988079071045
+                "r": 1.0
             },
-            "diffuseIntensity": 45.0,
-            "range": 355.0
+            "diffuseIntensity": 87.0,
+            "range": 100.0
         },
         "TransformComponent": {
             "boundingBox": {
@@ -62,9 +42,9 @@
                 }
             },
             "position": {
-                "x": -37.60771179199219,
-                "y": 4.528722763061523,
-                "z": 0.8779494166374207
+                "x": -27.399999618530273,
+                "y": 35.30000305175781,
+                "z": -26.900001525878906
             },
             "rotation": {
                 "w": 1.0,
@@ -80,7 +60,7 @@
         }
     },
     "Entity": {
-        "ID": 4,
-        "name": "Light"
+        "ID": 6,
+        "name": "PointLight"
     }
 }
