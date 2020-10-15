@@ -9,6 +9,8 @@
 #include "vendor/ImGUI/imgui_impl_dx11.h"
 #include "vendor/ImGUI/imgui_impl_win32.h"
 
+#include "resource.h"
+
 void Window::show()
 {
 	ShowWindow(m_WindowHandle, SW_SHOW);
@@ -224,3 +226,13 @@ HWND Window::getWindowHandle()
 {
 	return m_WindowHandle;
 }
+
+HINSTANCE hinst;            // handle to current instance 
+HWND hwnd;                  // main window handle  
+ 
+// Change the icon for hwnd's window class. 
+ 
+SetClassLong(hwnd,          // window handle 
+    GCL_HICON,              // changes icon 
+    (LONG) LoadIcon(hinst, MAKEINTRESOURCE(RX_ICON))
+   );
